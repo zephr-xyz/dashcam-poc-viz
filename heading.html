@@ -41,8 +41,8 @@
   bearings would look like if we trusted the native compass.</p>
 </header>
 <div class="controls">
-  <button id="btn-ahg4HL" class="active" onclick="setSession('ahg4HL')">session 1 · native Android GNSS path</button>
-  <button id="btn-GzSTi2" onclick="setSession('GzSTi2')">session 2 · Rx Networks corrections</button>
+  <button id="btn-ahg4HL" onclick="setSession('ahg4HL')">session 1 · native Android GNSS path</button>
+  <button id="btn-GzSTi2" class="active" onclick="setSession('GzSTi2')">session 2 · Rx Networks corrections</button>
   <span class="legend">
     <span><i class="swatch" style="background:var(--orange)"></i>estimator heading</span>
     <span><i class="swatch" style="background:var(--steel)"></i>android native bearing</span>
@@ -65,7 +65,7 @@ const canvas = document.getElementById('map');
 const ctx = canvas.getContext('2d');
 let W, H, dpr = window.devicePixelRatio || 1;
 let scale = 2.0, cx = 0, cy = 0;
-let sess = 'ahg4HL';
+let sess = 'GzSTi2';
 
 function data() { return HDATA.sessions[sess]; }
 
