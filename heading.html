@@ -75,7 +75,7 @@ function setSession(s) {
   overlay.style.display = 'none';
   document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
   document.getElementById('btn-' + s).classList.add('active');
-  fitView(); draw();
+  draw();
 }
 
 function resize() {
@@ -88,7 +88,9 @@ function resize() {
 window.addEventListener('resize', resize);
 
 function fitView() {
-  const xs = data().track.map(p => p[0]), ys = data().track.map(p => p[1]);
+  // Fit the union of both sessions so toggling never moves the map.
+  const pts = Object.values(HDATA.sessions).flatMap(s => s.track);
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   cx = (Math.min(...xs) + Math.max(...xs)) / 2;
   cy = (Math.min(...ys) + Math.max(...ys)) / 2;
   scale = Math.min(W / (Math.max(...xs) - Math.min(...xs) + 80),
