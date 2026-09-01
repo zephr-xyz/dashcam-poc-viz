@@ -59,6 +59,36 @@
   </div>
   <div class="attr">map data © OpenStreetMap contributors</div>
 </div>
+<div style="padding:0 28px 28px;max-width:900px">
+  <h2 style="font-family:'Archivo Black','Arial Black',Arial,sans-serif;font-weight:400;font-size:17px;margin:0 0 10px">heading error by leg, session 2 (Rx Networks)</h2>
+  <p style="color:var(--muted);font-size:13.5px;margin:0 0 12px;max-width:80ch">Reference is the
+  GNSS course, which is the road direction. 1,266 samples while moving above 3 m/s. The Zephr
+  heading equals the course while moving, so its error there is the Doppler course accuracy,
+  typically 1 to 2 degrees; through the stop in this session the gyro hold resumed 7.4 degrees off
+  after 4 seconds stationary.</p>
+  <table style="border-collapse:collapse;font-size:13px;width:100%">
+    <thead><tr style="color:var(--muted);text-align:left">
+      <th style="padding:6px 12px 6px 0;border-bottom:1px solid var(--line)">leg</th>
+      <th style="padding:6px 12px;border-bottom:1px solid var(--line)">samples</th>
+      <th style="padding:6px 12px;border-bottom:1px solid var(--line)">road direction</th>
+      <th style="padding:6px 12px;border-bottom:1px solid var(--line)">android raw error</th>
+      <th style="padding:6px 12px;border-bottom:1px solid var(--line)">android, mount removed</th>
+      <th style="padding:6px 12px;border-bottom:1px solid var(--line)">zephr heading</th>
+    </tr></thead>
+    <tbody style="font-family:'IBM Plex Mono',Menlo,monospace">
+      <tr><td style="padding:6px 12px 6px 0">north</td><td style="padding:6px 12px">379</td><td style="padding:6px 12px">2&deg;</td><td style="padding:6px 12px">+49.4&deg; &plusmn; 8.2</td><td style="padding:6px 12px">+5.8&deg; &plusmn; 8.2</td><td style="padding:6px 12px" rowspan="4" >course quality<br>(~1&ndash;2&deg;)</td></tr>
+      <tr><td style="padding:6px 12px 6px 0">east</td><td style="padding:6px 12px">286</td><td style="padding:6px 12px">95&deg;</td><td style="padding:6px 12px">+45.0&deg; &plusmn; 7.8</td><td style="padding:6px 12px">+1.4&deg; &plusmn; 7.8</td></tr>
+      <tr><td style="padding:6px 12px 6px 0">south</td><td style="padding:6px 12px">307</td><td style="padding:6px 12px">173&deg;</td><td style="padding:6px 12px">+50.1&deg; &plusmn; 12.9</td><td style="padding:6px 12px">+6.5&deg; &plusmn; 12.9</td></tr>
+      <tr><td style="padding:6px 12px 6px 0">west</td><td style="padding:6px 12px">294</td><td style="padding:6px 12px">256&deg;</td><td style="padding:6px 12px">+46.8&deg; &plusmn; 6.5</td><td style="padding:6px 12px">+3.1&deg; &plusmn; 6.5</td></tr>
+      <tr style="color:var(--orange)"><td style="padding:6px 12px 6px 0;border-top:1px solid var(--line)">all</td><td style="padding:6px 12px;border-top:1px solid var(--line)">1266</td><td style="padding:6px 12px;border-top:1px solid var(--line)"></td><td style="padding:6px 12px;border-top:1px solid var(--line)">+48.0&deg; &plusmn; 9.4</td><td style="padding:6px 12px;border-top:1px solid var(--line)">+4.3&deg; &plusmn; 9.4</td><td style="padding:6px 12px;border-top:1px solid var(--line)"></td></tr>
+    </tbody>
+  </table>
+  <p style="color:var(--muted);font-size:12.5px;margin:12px 0 0;max-width:80ch">The phone was
+  mounted 43.7&deg; off the vehicle axis; the estimator learned that angle during the drive.
+  "Mount removed" is the android heading after subtracting it, which is the best the native
+  compass could do with perfect calibration: several degrees of direction-dependent bias from
+  the car's iron distortion, plus noise.</p>
+</div>
 <script src="heading_data.js"></script>
 <script>
 const canvas = document.getElementById('map');
