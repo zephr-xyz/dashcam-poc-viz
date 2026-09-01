@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>drive heading: estimator vs android native bearing</title>
+<style>
+  :root {
+    --ink: #171512; --card: #211D19; --line: #5A554B;
+    --text: #EDEAE4; --muted: #8F887B; --orange: #DF6538; --steel: #5B84A8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); color: var(--text);
+    font-family: "DM Sans", "Helvetica Neue", Arial, sans-serif; }
+  header { padding: 26px 28px 12px; }
+  .eyebrow { font-family: "IBM Plex Mono", Menlo, monospace; font-size: 12px;
+    letter-spacing: .08em; color: var(--orange); margin: 0 0 6px; }
+  h1 { font-family: "Archivo Black", "Arial Black", Arial, sans-serif;
+    font-weight: 400; font-size: 24px; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 14px; max-width: 80ch; margin: 0 0 10px; }
+  .controls { padding: 0 28px 10px; display: flex; gap: 10px; align-items: center; }
+  button { background: var(--card); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 7px 14px; font-family: inherit; font-size: 13px; cursor: pointer; }
+  button.active { border-color: var(--orange); color: var(--orange); }
+  .legend { color: var(--muted); font-size: 12.5px; margin-left: 12px; }
+  .legend span { margin-right: 16px; }
+  .swatch { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; }
+  .mapbox { margin: 0 28px 24px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 6px; position: relative; height: calc(100vh - 210px); min-height: 480px; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 6px; cursor: crosshair; }
+  .attr { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: var(--muted); opacity: .8; }
+</style>
+</head>
+<body>
+<header>
+  <p class="eyebrow">03 / dashcam poc · square-block heading test · no VPS</p>
+  <h1>vehicle heading: estimator vs android native bearing</h1>
+  <p class="sub">At each sample along the drive, two arrows share one position. The orange arrow is
+  the drive-mode estimator (GNSS course while moving, gyro hold at stops). The blue arrow is the
+  Android rotation-vector heading, which includes the magnetometer and the phone's ~45° mount
+  rotation. The orange arrows should point down the road; the blue arrows show what image
+  bearings would look like if we trusted the native compass.</p>
+</header>
+<div class="controls">
+  <button id="btn-ahg4HL" class="active" onclick="setSession('ahg4HL')">session 1 · native Android GNSS path</button>
+  <button id="btn-GzSTi2" onclick="setSession('GzSTi2')">session 2 · Rx Networks corrections</button>
+  <span class="legend">
+    <span><i class="swatch" style="background:var(--orange)"></i>estimator heading</span>
+    <span><i class="swatch" style="background:var(--steel)"></i>android native bearing</span>
+    <span><i class="swatch" style="background:#4a463f"></i>raw GPS track</span>
+  </span>
+</div>
+<div class="mapbox"><canvas id="map"></canvas>
+  <div class="attr">map data © OpenStreetMap contributors</div>
+</div>
+<script src="heading_data.js"></script>
+<script>
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+let W, H, dpr = window.devicePixelRatio || 1;
+let scale = 2.0, cx = 0, cy = 0;
+let sess = 'ahg4HL';
+
+function data() { return HDATA.sessions[sess]; }
+
+function setSession(s) {
+  sess = s;
+  document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + s).classList.add('active');
+  fitView(); draw();
+}
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  W = r.width; H = r.height;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+function fitView() {
+  const xs = data().track.map(p => p[0]), ys = data().track.map(p => p[1]);
+  cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  scale = Math.min(W / (Math.max(...xs) - Math.min(...xs) + 80),
+                   H / (Math.max(...ys) - Math.min(...ys) + 80));
+}
+const sx = e => W/2 + (e - cx) * scale;
+const sy = n => H/2 - (n - cy) * scale;
+
+// ---- OSM tiles, dark filtered ----
+const TILES = new Map();
+const mLat = 111132.95, mLon = 111319.49 * Math.cos(HDATA.lat0 * Math.PI / 180);
+function drawTiles() {
+  const z = Math.max(3, Math.min(19,
+    Math.round(Math.log2(scale * 156543.03 * Math.cos(HDATA.lat0 * Math.PI / 180)))));
+  const n = 2 ** z;
+  const lonMin = HDATA.lon0 + (cx - W/2/scale) / mLon, lonMax = HDATA.lon0 + (cx + W/2/scale) / mLon;
+  const latMin = HDATA.lat0 + (cy - H/2/scale) / mLat, latMax = HDATA.lat0 + (cy + H/2/scale) / mLat;
+  const l2y = lat => Math.floor((1 - Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180)) / Math.PI) / 2 * n);
+  const x0 = Math.floor((lonMin + 180) / 360 * n), x1 = Math.floor((lonMax + 180) / 360 * n);
+  const y0 = l2y(latMax), y1 = l2y(latMin);
+  if ((x1 - x0 + 1) * (y1 - y0 + 1) > 120) return;
+  ctx.save();
+  ctx.filter = 'invert(1) hue-rotate(180deg) saturate(0.25) brightness(0.75)';
+  for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
+    if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
+    const key = `${z}/${tx}/${ty}`;
+    let img = TILES.get(key);
+    if (!img) {
+      img = new Image(); img.crossOrigin = 'anonymous';
+      img.src = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+      img.onload = () => draw();
+      TILES.set(key, img);
+    }
+    if (!img.complete || !img.naturalWidth) continue;
+    const nwLon = tx/n*360 - 180, seLon = (tx+1)/n*360 - 180;
+    const nwLat = Math.atan(Math.sinh(Math.PI*(1 - 2*ty/n)))*180/Math.PI;
+    const seLat = Math.atan(Math.sinh(Math.PI*(1 - 2*(ty+1)/n)))*180/Math.PI;
+    const px = sx((nwLon - HDATA.lon0)*mLon), py = sy((nwLat - HDATA.lat0)*mLat);
+    const qx = sx((seLon - HDATA.lon0)*mLon), qy = sy((seLat - HDATA.lat0)*mLat);
+    ctx.drawImage(img, px, py, qx - px, qy - py);
+  }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(23,21,18,0.22)';
+  ctx.fillRect(0, 0, W, H);
+}
+
+function arrow(e, n, headingDeg, lenM, color, width) {
+  const a = (90 - headingDeg) * Math.PI / 180;
+  const x1 = sx(e), y1 = sy(n);
+  const x2 = sx(e + lenM * Math.cos(a)), y2 = sy(n + lenM * Math.sin(a));
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  const ha = Math.atan2(y2 - y1, x2 - x1);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 8*Math.cos(ha - 0.4), y2 - 8*Math.sin(ha - 0.4));
+  ctx.lineTo(x2 - 8*Math.cos(ha + 0.4), y2 - 8*Math.sin(ha + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawTiles();
+  const d = data();
+  ctx.strokeStyle = 'rgba(143,136,123,0.6)'; ctx.lineWidth = 2; ctx.beginPath();
+  d.track.forEach((p, i) => i ? ctx.lineTo(sx(p[0]), sy(p[1])) : ctx.moveTo(sx(p[0]), sy(p[1])));
+  ctx.stroke();
+  for (const s of d.samples) {
+    if (s.dev != null) arrow(s.e, s.n, s.dev, 9, 'rgba(91,132,168,0.9)', 2);
+    arrow(s.e, s.n, s.est, 12, 'rgba(223,101,56,0.95)', 2.5);
+    ctx.fillStyle = 'rgba(237,234,228,0.9)';
+    ctx.beginPath(); ctx.arc(sx(s.e), sy(s.n), 2, 0, 7); ctx.fill();
+  }
+}
+
+let dragging = false, lx = 0, ly = 0;
+canvas.addEventListener('mousedown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
+window.addEventListener('mouseup', () => dragging = false);
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  cx -= (e.clientX - lx) / scale; cy += (e.clientY - ly) / scale;
+  lx = e.clientX; ly = e.clientY; draw();
+});
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  scale *= e.deltaY < 0 ? 1.15 : 0.87;
+  scale = Math.max(0.2, Math.min(400, scale));
+  draw();
+}, { passive: false });
+
+function init() {
+  resize(); fitView(); draw();
+  if (W < 50 || H < 50) requestAnimationFrame(init);
+}
+window.addEventListener('load', () => requestAnimationFrame(init));
+init();
+</script>
+</body>
+</html>
