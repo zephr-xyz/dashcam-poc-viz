@@ -47,9 +47,16 @@
     <span><i class="swatch" style="background:var(--orange)"></i>estimator heading</span>
     <span><i class="swatch" style="background:var(--steel)"></i>android native bearing</span>
     <span><i class="swatch" style="background:#4a463f"></i>raw GPS track</span>
+    <span>hover a point for its dashcam frame · click to pin</span>
   </span>
 </div>
 <div class="mapbox"><canvas id="map"></canvas>
+  <div id="frameOverlay" style="position:absolute;left:12px;bottom:12px;width:300px;display:none;
+       background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px;">
+    <img id="overlayImg" style="width:100%;border-radius:4px;display:block;background:#000" alt="dashcam frame">
+    <div id="overlayCap" style="font-family:'IBM Plex Mono',Menlo,monospace;font-size:11px;
+         color:var(--muted);margin-top:6px;line-height:1.6"></div>
+  </div>
   <div class="attr">map data © OpenStreetMap contributors</div>
 </div>
 <script src="heading_data.js"></script>
@@ -64,6 +71,8 @@ function data() { return HDATA.sessions[sess]; }
 
 function setSession(s) {
   sess = s;
+  hovered = pinned = null;
+  overlay.style.display = 'none';
   document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
   document.getElementById('btn-' + s).classList.add('active');
   fitView(); draw();
@@ -150,10 +159,54 @@ function draw() {
   for (const s of d.samples) {
     if (s.dev != null) arrow(s.e, s.n, s.dev, 9, 'rgba(91,132,168,0.9)', 2);
     arrow(s.e, s.n, s.est, 12, 'rgba(223,101,56,0.95)', 2.5);
-    ctx.fillStyle = 'rgba(237,234,228,0.9)';
-    ctx.beginPath(); ctx.arc(sx(s.e), sy(s.n), 2, 0, 7); ctx.fill();
+    const active = s === (pinned || hovered);
+    ctx.fillStyle = active ? 'rgba(223,101,56,1)' : 'rgba(237,234,228,0.9)';
+    ctx.beginPath(); ctx.arc(sx(s.e), sy(s.n), s.img ? (active ? 5 : 3) : 2, 0, 7); ctx.fill();
   }
 }
+
+// ---- frame overlay: hover shows, click pins ----
+let hovered = null, pinned = null;
+const overlay = document.getElementById('frameOverlay');
+const overlayImg = document.getElementById('overlayImg');
+const overlayCap = document.getElementById('overlayCap');
+
+function sampleAt(px, py) {
+  let best = null, bd = 14;
+  for (const s of data().samples) {
+    const dd = Math.hypot(sx(s.e) - px, sy(s.n) - py);
+    if (dd < bd) { bd = dd; best = s; }
+  }
+  return best;
+}
+
+function showOverlay(s) {
+  if (!s || !s.img) { if (!pinned) overlay.style.display = 'none'; return; }
+  overlay.style.display = 'block';
+  overlayImg.src = s.img;
+  overlayCap.textContent =
+    `t+${s.t}s · est ${s.est.toFixed(0)}°` +
+    (s.dev != null ? ` · android ${s.dev.toFixed(0)}°` : '') +
+    (s.spd != null ? ` · ${s.spd} m/s` : '') +
+    (s === pinned ? ' · pinned' : '');
+}
+
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  const s = sampleAt(e.clientX - r.left, e.clientY - r.top);
+  if (s !== hovered) {
+    hovered = s;
+    if (!pinned) showOverlay(hovered);
+    draw();
+  }
+});
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  const s = sampleAt(e.clientX - r.left, e.clientY - r.top);
+  pinned = (s && s.img && s !== pinned) ? s : null;
+  showOverlay(pinned || hovered);
+  draw();
+});
 
 let dragging = false, lx = 0, ly = 0;
 canvas.addEventListener('mousedown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
